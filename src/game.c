@@ -4,6 +4,7 @@
 #include <SDL2/SDL_ttf.h>
 
 #include "../include/defines.h"
+#include "../include/files.h"
 
 extern SDL_Window* window;
 extern SDL_Renderer* renderer;
@@ -16,4 +17,12 @@ extern Button closeButton;
 extern Button settingsButton;
 extern Button settingsExitButton;
 
+extern int sfxVol;
+extern int musicVol;
+
 int startGame(void) { return 0; }
+
+int loadPreviousGame(struct MainCharacterStats *mainChar) {
+	loadGame(mainChar);
+	return 0;
+}

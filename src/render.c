@@ -7,7 +7,9 @@
 
 extern SDL_Window* window;
 extern SDL_Renderer* renderer;
-extern SDL_Rect backgroundPanel, mainTitleRect, startButtonRect, closeButtonRect, settingsButtonRect, settingsExitButtonRect;
+extern SDL_Rect backgroundPanel, mainTitleRect, startButtonRect, closeButtonRect, settingsButtonRect;
+extern SDL_Rect settingsExitButtonRect, sfxVolumeButtonRect, musicVolumeButtonRect, infoBoxRect;
+extern SDL_Rect newGameButtonRect, loadGameButtonRect, backButtonRect;
 extern TTF_Font* font;
 extern SDL_Color textColor;
 
@@ -15,6 +17,12 @@ extern Button startButton;
 extern Button closeButton;
 extern Button settingsButton;
 extern Button settingsExitButton;
+extern Button sfxVolumeButton;
+extern Button musicVolumeButton;
+extern Button newGameButton;
+extern Button loadGameButton;
+extern Button backButton;
+extern Box infoBox;
 
 int renderText(const char* text, SDL_Rect destRect) {
     SDL_Surface* textSurface = TTF_RenderText_Blended(font, text, textColor);
@@ -68,7 +76,7 @@ void renderRoundedRect(SDL_Renderer* renderer, SDL_Rect rect, int radius, SDL_Co
     SDL_Rect bottomRect = {rect.x + radius, rect.y + rect.h - radius, rect.w - 2 * radius, radius};
     SDL_Rect leftRect = {rect.x, rect.y + radius, radius, rect.h - 2 * radius};
     SDL_Rect rightRect = {rect.x + rect.w - radius, rect.y + radius, radius, rect.h - 2 * radius};
-	    SDL_Rect roundedRect = {
+	SDL_Rect roundedRect = {
         rect.x + radius,
         rect.y,
         rect.w - 2 * radius,
@@ -89,4 +97,32 @@ void renderRoundedRect(SDL_Renderer* renderer, SDL_Rect rect, int radius, SDL_Co
     SDL_RenderFillCircle(renderer, centerX + rect.w - 2 * radius, centerY, radius, color);
     SDL_RenderFillCircle(renderer, centerX, centerY + rect.h - 2 * radius, radius, color);
     SDL_RenderFillCircle(renderer, centerX + rect.w - 2 * radius, centerY + rect.h - 2 * radius, radius, color);
+}
+
+int renderTextPositional(const char* text, SDL_Rect destRect, int textYPosition) {
+    SDL_Surface* textSurface = TTF_RenderText_Blended(font, text, textColor);
+    if (textSurface == NULL) {
+        return 1;
+    }
+
+    // Get the dimensions of the rendered text
+    int textWidth = textSurface->w;
+    int textHeight = textSurface->h;
+
+    // Calculate the position to center the text within the destination rectangle
+    int centerX = destRect.x + (destRect.w - textWidth) / 2;
+    int centerY = destRect.y + textYPosition;
+
+    SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+    if (textTexture == NULL) {
+        return 2;
+    }
+
+    SDL_Rect textDestRect = { centerX, centerY, textWidth, textHeight };
+    SDL_RenderCopy(renderer, textTexture, NULL, &textDestRect);
+    SDL_DestroyTexture(textTexture);
+    
+    SDL_FreeSurface(textSurface);
+    
+    return 0;
 }

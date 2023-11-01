@@ -3,18 +3,20 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_mixer.h>
 #include <SDL2/SDL_ttf.h>
+#include <json-c/json.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "../include/defines.h"
 #include "../include/render.h"
 #include "../include/game.h"
-
-#define FONT_SIZE 49
-#define FRAME_DELAY 15
+#include "../include/files.h"
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
-SDL_Rect backgroundPanel, mainTitleRect, startButtonRect, closeButtonRect, settingsButtonRect, settingsExitButtonRect;
+SDL_Rect backgroundPanel, mainTitleRect, startButtonRect, closeButtonRect, settingsButtonRect;
+SDL_Rect settingsExitButtonRect, sfxVolumeButtonRect, musicVolumeButtonRect, infoBoxRect;
+SDL_Rect newGameButtonRect, loadGameButtonRect, backButtonRect;
 TTF_Font* font = NULL;
 SDL_Color textColor = {255, 255, 255, 255};
 
@@ -22,17 +24,34 @@ Button startButton;
 Button closeButton;
 Button settingsButton;
 Button settingsExitButton;
+Button sfxVolumeButton;
+Button musicVolumeButton;
+Button newGameButton;
+Button loadGameButton;
+Button backButton;
+Box infoBox;
+
+struct MainCharacterStats mainChar;
+
+int sfxVol = MIX_MAX_VOLUME;
+int musicVol = MIX_MAX_VOLUME;
+bool sfxDecHovered, sfxIncHovered, musicDecHovered, musicIncHovered;
 
 int main(int argc, char* argv[]) {
-	int currentMenuState = MAIN_MENU;
+	int currentMenuState = MAIN;
     int returnValue = SUCCESS;
+	struct MainCharacterStats mainChar;
+	mainChar.health = MAIN_CHAR_MAX_HEALTH;
+	mainChar.speed = MAIN_CHAR_MAX_SPEED;
     AssetDefinitions assets = {
         {
             "assets/images/textures/backgrounds/background.png"
         },
         {
             "assets/audio/background/track0.mp3",
-            "assets/audio/sfx/buttonClick.mp3"
+            "assets/audio/sfx/buttonClick.mp3",
+            "assets/audio/sfx/errorTypeOne.mp3",
+            "assets/audio/sfx/errorTypeTwo.mp3"
         }
     };
 
@@ -53,9 +72,12 @@ int main(int argc, char* argv[]) {
 
     Mix_Music* backgroundMusic = NULL;
     Mix_Chunk* buttonClickSound = NULL;
+    Mix_Chunk* errorTypeOne = NULL;
+    Mix_Chunk* errorTypeTwo = NULL;
 
     SDL_DisplayMode dm;
     SDL_GetDesktopDisplayMode(0, &dm);
+	// dm.h = (9*dm.w)/16; // change this to resize for aspects other than 16:9
 
     window = SDL_CreateWindow("Sneezy Ninja", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, dm.w, dm.h, SDL_WINDOW_SHOWN);
     if (window == NULL) {
@@ -89,6 +111,12 @@ int main(int argc, char* argv[]) {
 	int titleWidth = dm.w / 2;
 	int titleHeight = dm.h / 4;
 	
+	int errorCount = 0;
+	
+	char buffer[5];
+	
+	bool gamePreviouslySaved;
+	
 	backgroundPanel.x = 0;
 	backgroundPanel.y = 0;
 	backgroundPanel.w = dm.w;
@@ -113,6 +141,36 @@ int main(int argc, char* argv[]) {
     settingsExitButtonRect.y = centerY + (buttonHeight + buttonSpacing)*2;
     settingsExitButtonRect.w = buttonWidth;
     settingsExitButtonRect.h = buttonHeight;
+
+    musicVolumeButtonRect.x = centerX - buttonWidth / 2;
+    musicVolumeButtonRect.y = centerY - buttonHeight - buttonSpacing;
+    musicVolumeButtonRect.w = buttonWidth;
+    musicVolumeButtonRect.h = buttonHeight;
+
+    sfxVolumeButtonRect.x = centerX - buttonWidth / 2;
+    sfxVolumeButtonRect.y = centerY;
+    sfxVolumeButtonRect.w = buttonWidth;
+    sfxVolumeButtonRect.h = buttonHeight;
+
+    newGameButtonRect.x = centerX - buttonWidth / 2;
+    newGameButtonRect.y = centerY - buttonHeight - buttonSpacing;
+    newGameButtonRect.w = buttonWidth;
+    newGameButtonRect.h = buttonHeight;
+
+    loadGameButtonRect.x = centerX - buttonWidth / 2;
+    loadGameButtonRect.y = centerY;
+    loadGameButtonRect.w = buttonWidth;
+    loadGameButtonRect.h = buttonHeight;
+
+    backButtonRect.x = centerX - buttonWidth / 2;
+    backButtonRect.y = centerY + (buttonHeight + buttonSpacing)*2;
+    backButtonRect.w = buttonWidth;
+    backButtonRect.h = buttonHeight;
+
+    infoBoxRect.x = centerX + buttonWidth;
+    infoBoxRect.y = centerY - buttonHeight - buttonSpacing;
+    infoBoxRect.w = buttonWidth * 2;
+    infoBoxRect.h = titleHeight;
 	
 	mainTitleRect.x = centerX - titleWidth / 2;
     mainTitleRect.y = centerY - (titleHeight * 3) / 2;
@@ -139,8 +197,46 @@ int main(int argc, char* argv[]) {
     settingsExitButton.bgColorHover = (SDL_Color){20, 20, 20, 255};
     settingsExitButton.isHovered = 0;
 	
+	musicVolumeButton.rect =  musicVolumeButtonRect;
+    musicVolumeButton.bgColor = (SDL_Color){0, 0, 0, 255};
+    musicVolumeButton.bgColorHover = (SDL_Color){20, 20, 20, 255};
+    musicVolumeButton.isHovered = 0;
+	
+	sfxVolumeButton.rect = sfxVolumeButtonRect;
+    sfxVolumeButton.bgColor = (SDL_Color){0, 0, 0, 255};
+    sfxVolumeButton.bgColorHover = (SDL_Color){20, 20, 20, 255};
+    sfxVolumeButton.isHovered = 0;
+	
+	newGameButton.rect =  newGameButtonRect;
+    newGameButton.bgColor = (SDL_Color){0, 0, 0, 255};
+    newGameButton.bgColorHover = (SDL_Color){20, 20, 20, 255};
+    newGameButton.isHovered = 0;
+	
+	loadGameButton.rect = loadGameButtonRect;
+    loadGameButton.bgColor = (SDL_Color){0, 0, 0, 255};
+    loadGameButton.bgColorHover = (SDL_Color){20, 20, 20, 255};
+    loadGameButton.isHovered = 0;
+	
+	backButton.rect = backButtonRect;
+    backButton.bgColor = (SDL_Color){0, 0, 0, 255};
+    backButton.bgColorHover = (SDL_Color){20, 20, 20, 255};
+    backButton.isHovered = 0;
+	
+	infoBox.rect = infoBoxRect;
+    infoBox.bgColor = (SDL_Color){10, 10, 10, 255};
+	
 
     SDL_Texture* backgroundTexture = IMG_LoadTexture(renderer, assets.imageDefinitions[0]);
+	
+	FILE *saveFileRead = fopen("text\\savefile.json", "r");
+	if (saveFileRead == NULL) {
+		gamePreviouslySaved = false;
+	} else {
+		gamePreviouslySaved = true;
+	}
+	
+	fclose(saveFileRead);
+	
 
     if (backgroundTexture == NULL) {
         returnValue = IMAGE_FAIL;
@@ -149,8 +245,10 @@ int main(int argc, char* argv[]) {
 
     backgroundMusic = Mix_LoadMUS(assets.audioDefinitions[0]);
     buttonClickSound = Mix_LoadWAV(assets.audioDefinitions[1]);
+    errorTypeOne = Mix_LoadWAV(assets.audioDefinitions[2]);
+    errorTypeTwo = Mix_LoadWAV(assets.audioDefinitions[3]);
 
-    if (buttonClickSound == NULL || backgroundMusic == NULL) {
+    if (buttonClickSound == NULL || backgroundMusic == NULL || errorTypeOne == NULL || errorTypeTwo == NULL) {
         returnValue = AUDIO_LOAD_FAIL;
         goto exitSequence;
     }
@@ -178,8 +276,33 @@ int main(int argc, char* argv[]) {
 					int mouseX = event.motion.x;
 					int mouseY = event.motion.y;
 
-					settingsExitButton.isHovered 		= (mouseX >= settingsExitButtonRect.x && mouseX <= settingsExitButtonRect.x + settingsExitButtonRect.w && mouseY >= settingsExitButtonRect.y && mouseY <= settingsExitButtonRect.y + settingsExitButtonRect.h);
+					settingsExitButton.isHovered = (mouseX >= settingsExitButtonRect.x && mouseX <= settingsExitButtonRect.x + settingsExitButtonRect.w && mouseY >= settingsExitButtonRect.y && mouseY <= settingsExitButtonRect.y + settingsExitButtonRect.h);
+					musicVolumeButton.isHovered  = (mouseX >= musicVolumeButtonRect.x && mouseX <= musicVolumeButtonRect.x + musicVolumeButtonRect.w && mouseY >= musicVolumeButtonRect.y && mouseY <= musicVolumeButtonRect.y + musicVolumeButtonRect.h);
+					sfxVolumeButton.isHovered 	 = (mouseX >= sfxVolumeButtonRect.x && mouseX <= sfxVolumeButtonRect.x + sfxVolumeButtonRect.w && mouseY >= sfxVolumeButtonRect.y && mouseY <= sfxVolumeButtonRect.y + sfxVolumeButtonRect.h);
+					
+					musicIncHovered = (mouseX >= musicVolumeButtonRect.x && mouseX <= musicVolumeButtonRect.x + (musicVolumeButtonRect.w / 2) && mouseY >= musicVolumeButtonRect.y && mouseY <= musicVolumeButtonRect.y + musicVolumeButtonRect.h);
+					sfxIncHovered = (mouseX >= sfxVolumeButtonRect.x && mouseX <= sfxVolumeButtonRect.x + (sfxVolumeButtonRect.w / 2) && mouseY >= sfxVolumeButtonRect.y && mouseY <= sfxVolumeButtonRect.y + sfxVolumeButtonRect.h);
+					
+					if (!musicIncHovered && musicVolumeButton.isHovered) {
+						musicDecHovered = true;
+					} else {
+						musicDecHovered = false;
+					}
+					if (!sfxIncHovered && sfxVolumeButton.isHovered) {
+						sfxDecHovered = true;
+					} else {
+						sfxDecHovered = false;
+					}
+					
+					screenNeedsUpdate = 1;
+				} else if (currentMenuState == START_SCREEN) {
+					int mouseX = event.motion.x;
+					int mouseY = event.motion.y;
 
+					newGameButton.isHovered 	= (mouseX >= newGameButtonRect.x && mouseX <= newGameButtonRect.x + newGameButtonRect.w && mouseY >= newGameButtonRect.y && mouseY <= newGameButtonRect.y + newGameButtonRect.h);
+					loadGameButton.isHovered 	= (mouseX >= loadGameButtonRect.x && mouseX <= loadGameButtonRect.x + loadGameButtonRect.w && mouseY >= loadGameButtonRect.y && mouseY <= loadGameButtonRect.y + loadGameButtonRect.h);
+					backButton.isHovered 		= (mouseX >= backButtonRect.x && mouseX <= backButtonRect.x + backButtonRect.w && mouseY >= backButtonRect.y && mouseY <= backButtonRect.y + backButtonRect.h);
+					
 					screenNeedsUpdate = 1;
 				}
             } else if (event.type == SDL_MOUSEBUTTONDOWN) {
@@ -187,11 +310,13 @@ int main(int argc, char* argv[]) {
 					if (startButton.isHovered) {
 						screenNeedsUpdate = 1;
 						Mix_PlayChannel(-1, buttonClickSound, 0);
-						startGame();
+						currentMenuState = START_SCREEN;
+						screenNeedsUpdate = 1;
 					} else if (settingsButton.isHovered) {
 						screenNeedsUpdate = 1;
 						Mix_PlayChannel(-1, buttonClickSound, 0);
                         currentMenuState = SETTINGS_MENU;
+						screenNeedsUpdate = 1;
 					} else if (closeButton.isHovered) {
 						returnValue = SUCCESS;
 						goto exitSequence;
@@ -199,10 +324,69 @@ int main(int argc, char* argv[]) {
 				} else if (currentMenuState == SETTINGS_MENU) {
 					if (settingsExitButton.isHovered) {
 						screenNeedsUpdate = 1;
-						Mix_PlayChannel(-1, buttonClickSound, 0);
                         currentMenuState = MAIN;
+					} 
+					if (musicIncHovered) {
+						// Increase music volume
+						if (musicVol <= MIX_MAX_VOLUME - 9) {
+							musicVol += 8;
+							Mix_VolumeMusic(musicVol);
+						} else {
+							musicVol = 128;
+						}
+					} else if (musicDecHovered) {
+						// Decrease music volume
+						if (musicVol >= 9) {
+							musicVol -= 8;
+							Mix_VolumeMusic(musicVol);
+						} else {
+							musicVol = 0;
+						}
+					}
+					if (sfxIncHovered) {
+						// Increase sfx volume
+						if (sfxVol <= MIX_MAX_VOLUME - 9) {
+							sfxVol += 8;
+							Mix_MasterVolume(sfxVol);
+						} else {
+							sfxVol = 128;
+						}
+					} else if (sfxDecHovered) {
+						// Decrease sfx volume
+						if (sfxVol >= 9) {
+							sfxVol -= 8;
+							Mix_MasterVolume(sfxVol);
+						} else {
+							sfxVol = 0;
+						}
+					}
+					Mix_PlayChannel(-1, buttonClickSound, 0);
+				} else if (currentMenuState == START_SCREEN) {
+					if (newGameButton.isHovered) {
+						screenNeedsUpdate = 1;
+						Mix_PlayChannel(-1, buttonClickSound, 0);
+						startGame();
+					} else if (loadGameButton.isHovered) {
+						screenNeedsUpdate = 1;
+						if (gamePreviouslySaved) {
+							Mix_PlayChannel(-1, buttonClickSound, 0);
+							loadPreviousGame(&mainChar);
+						} else {
+							if (errorCount < 10) {
+								Mix_PlayChannel(-1, errorTypeOne, 0);
+								errorCount++;
+							} else {
+								Mix_PlayChannel(-1, errorTypeTwo, 0);
+								errorCount = 0;
+							}
+						}
+					} else if (backButton.isHovered) {
+						screenNeedsUpdate = 1;
+						Mix_PlayChannel(-1, buttonClickSound, 0);
+						currentMenuState = MAIN;
 					}
 				}
+				screenNeedsUpdate = 1;
             }
         }
 
@@ -236,12 +420,73 @@ int main(int argc, char* argv[]) {
 					renderText("Settings", settingsButton.rect);
 				}
 			} else if (currentMenuState == SETTINGS_MENU) {
+				renderRoundedRect(renderer, infoBox.rect, 10, infoBox.bgColor);
 				if (settingsExitButton.isHovered) {
 					renderRoundedRect(renderer, settingsExitButton.rect, 10, settingsExitButton.bgColorHover);
 					renderText("Menu", settingsExitButton.rect);
+					renderRoundedRect(renderer, infoBox.rect, 10, infoBox.bgColor);
+					renderText("Exit settings", infoBox.rect);
 				} else {
 					renderRoundedRect(renderer, settingsExitButton.rect, 10, settingsExitButton.bgColor);
 					renderText("Menu", settingsExitButton.rect);
+				}
+				if (musicIncHovered || musicDecHovered) {
+					renderRoundedRect(renderer, musicVolumeButton.rect, 10, musicVolumeButton.bgColorHover);
+					renderText("+Music-", musicVolumeButton.rect);
+					renderTextPositional("-Music Volume-", infoBox.rect, 10);
+					renderTextPositional("Current:", infoBox.rect, 60);
+					snprintf(buffer, sizeof(buffer), "%d", musicVol);
+					const char* string = buffer;
+					renderTextPositional(string, infoBox.rect, 110);
+				} else {
+					renderRoundedRect(renderer, musicVolumeButton.rect, 10, musicVolumeButton.bgColor);
+					renderText("+Music-", musicVolumeButton.rect);
+				}
+				if (sfxIncHovered || sfxDecHovered) {
+					renderRoundedRect(renderer, sfxVolumeButton.rect, 10, sfxVolumeButton.bgColorHover);
+					renderText("+ SFX -", sfxVolumeButton.rect);
+					renderTextPositional("-SFX Volume-", infoBox.rect, 10);
+					renderTextPositional("Current:", infoBox.rect, 60);
+					snprintf(buffer, sizeof(buffer), "%d", sfxVol);
+					const char* string = buffer;
+					renderTextPositional(string, infoBox.rect, 110);
+				} else {
+					renderRoundedRect(renderer, sfxVolumeButton.rect, 10, sfxVolumeButton.bgColor);
+					renderText("+ SFX -", sfxVolumeButton.rect);
+				}
+			} else if (currentMenuState == START_SCREEN) {
+				renderRoundedRect(renderer, infoBox.rect, 10, infoBox.bgColor);
+				if (newGameButton.isHovered) {
+					renderRoundedRect(renderer, newGameButton.rect, 10, newGameButton.bgColorHover);
+					renderText("New", newGameButton.rect);
+					renderRoundedRect(renderer, infoBox.rect, 10, infoBox.bgColor);
+					renderTextPositional("Start new", infoBox.rect, 10);
+					renderTextPositional("game", infoBox.rect, 60);
+				} else {
+					renderRoundedRect(renderer, newGameButton.rect, 10, newGameButton.bgColor);
+					renderText("New", newGameButton.rect);
+				}
+				if (loadGameButton.isHovered) {
+					renderRoundedRect(renderer, loadGameButton.rect, 10, loadGameButton.bgColorHover);
+					renderText("Load", loadGameButton.rect);
+					renderTextPositional("Load game", infoBox.rect, 10);
+					if (gamePreviouslySaved) {
+						renderTextPositional("Available", infoBox.rect, 60);
+					} else {
+						renderTextPositional("Unavailable", infoBox.rect, 60);
+					}
+				} else {
+					renderRoundedRect(renderer, loadGameButton.rect, 10, loadGameButton.bgColor);
+					renderText("Load", loadGameButton.rect);
+				}
+				if (backButton.isHovered) {
+					renderRoundedRect(renderer, backButton.rect, 10, backButton.bgColorHover);
+					renderText("Menu", backButton.rect);
+					renderTextPositional("Back to Main", infoBox.rect, 10);
+					renderTextPositional("menu", infoBox.rect, 60);
+				} else {
+					renderRoundedRect(renderer, backButton.rect, 10, backButton.bgColor);
+					renderText("Menu", backButton.rect);
 				}
 			}
 			
