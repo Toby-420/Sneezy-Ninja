@@ -1,2 +1,4 @@
 # Sneezy-Ninja
-A game made with SDL2
+A game made with SDL2/OpenGL
+
+OpenGL will be added later on.
