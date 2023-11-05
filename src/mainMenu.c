@@ -6,11 +6,13 @@
 #include <json-c/json.h>
 #include <stdbool.h>
 #include <string.h>
+#include <GL/gl.h>
 
 #include "../include/defines.h"
 #include "../include/render.h"
 #include "../include/game.h"
 #include "../include/files.h"
+
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
@@ -49,9 +51,11 @@ int main(int argc, char* argv[]) {
         },
         {
             "assets/audio/background/track0.mp3",
+            "assets/audio/background/gandalf.mp3",
             "assets/audio/sfx/buttonClick.mp3",
             "assets/audio/sfx/errorTypeOne.mp3",
-            "assets/audio/sfx/errorTypeTwo.mp3"
+            "assets/audio/sfx/errorTypeTwo.mp3",
+            "assets/audio/sfx/epicGame.mp3"
         }
     };
 
@@ -71,9 +75,11 @@ int main(int argc, char* argv[]) {
     }
 
     Mix_Music* backgroundMusic = NULL;
+    Mix_Music* gandalfSoundTrack = NULL;
     Mix_Chunk* buttonClickSound = NULL;
     Mix_Chunk* errorTypeOne = NULL;
     Mix_Chunk* errorTypeTwo = NULL;
+    Mix_Chunk* epicGame = NULL;
 
     SDL_DisplayMode dm;
     SDL_GetDesktopDisplayMode(0, &dm);
@@ -244,11 +250,13 @@ int main(int argc, char* argv[]) {
     }
 
     backgroundMusic = Mix_LoadMUS(assets.audioDefinitions[0]);
-    buttonClickSound = Mix_LoadWAV(assets.audioDefinitions[1]);
-    errorTypeOne = Mix_LoadWAV(assets.audioDefinitions[2]);
-    errorTypeTwo = Mix_LoadWAV(assets.audioDefinitions[3]);
+    gandalfSoundTrack = Mix_LoadMUS(assets.audioDefinitions[1]);
+    buttonClickSound = Mix_LoadWAV(assets.audioDefinitions[2]);
+    errorTypeOne = Mix_LoadWAV(assets.audioDefinitions[3]);
+    errorTypeTwo = Mix_LoadWAV(assets.audioDefinitions[4]);
+    epicGame = Mix_LoadWAV(assets.audioDefinitions[5]);
 
-    if (buttonClickSound == NULL || backgroundMusic == NULL || errorTypeOne == NULL || errorTypeTwo == NULL) {
+    if (buttonClickSound == NULL || backgroundMusic == NULL || errorTypeOne == NULL || errorTypeTwo == NULL || epicGame == NULL || gandalfSoundTrack == NULL) {
         returnValue = AUDIO_LOAD_FAIL;
         goto exitSequence;
     }
@@ -258,11 +266,35 @@ int main(int argc, char* argv[]) {
 
     SDL_Event event;
     bool quit = false;
+	const int konamiCode[] = {SDLK_UP, SDLK_UP, SDLK_DOWN, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT, SDLK_LEFT, SDLK_RIGHT, SDLK_b, SDLK_a};
+	int konamiIndex = 0;  // Keeps track of the currently expected key
+	bool konamiMode = false;
     while (!quit) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 quit = 1;
-            } else if (event.type == SDL_MOUSEMOTION) {
+            } else if (event.type == SDL_KEYDOWN) {
+            // Check if the current key in the Konami code matches the pressed key
+            if (event.key.keysym.sym == konamiCode[konamiIndex]) {
+                konamiIndex++;  // Move to the next expected key
+                if (konamiIndex == sizeof(konamiCode) / sizeof(int)) {
+					if (!konamiMode) {
+						Mix_PlayChannel(-1, epicGame, 0);
+						Mix_PlayMusic(gandalfSoundTrack, -1);
+						konamiMode = true;
+					} else {
+						Mix_PlayChannel(-1, epicGame, 0);
+						Mix_PlayMusic(backgroundMusic, -1);
+						konamiMode = false;
+					}
+                    
+					konamiIndex = 0;
+                }
+            } else {
+                // If the pressed key doesn't match the expected one, reset the index
+                konamiIndex = 0;
+            }
+        } else if (event.type == SDL_MOUSEMOTION) {
 				if (currentMenuState == MAIN_MENU) {
 					int mouseX = event.motion.x;
 					int mouseY = event.motion.y;

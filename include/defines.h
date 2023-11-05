@@ -32,8 +32,8 @@ Different assets loaded in from files go in these
 */
 
 typedef struct {
-	const char imageDefinitions[7][64];
-	const char audioDefinitions[4][64];
+	const char imageDefinitions[1][50];
+	const char audioDefinitions[6][35];
 } AssetDefinitions;
 
 /*
