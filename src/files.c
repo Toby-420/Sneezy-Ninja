@@ -6,9 +6,7 @@
 extern int sfxVol;
 extern int musicVol;
 
-struct MainCharacterStats mainChar;
-
-int saveGame(struct MainCharacterStats mainChar) {
+int saveGame(CharacterStats mainChar) {
   json_object *root = json_object_new_object();
   json_object_object_add(root, "sfxVol", json_object_new_int(sfxVol));
   json_object_object_add(root, "musicVol", json_object_new_int(musicVol));
@@ -28,7 +26,7 @@ int saveGame(struct MainCharacterStats mainChar) {
   return 0;
 }
 
-int loadGame(struct MainCharacterStats *mainChar) {
+int loadGame(CharacterStats *mainChar) {
   FILE *file = fopen("text\\savefile.json", "r");
   
   if (file == NULL) return 1;

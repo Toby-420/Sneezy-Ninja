@@ -3,8 +3,6 @@
 
 #include "defines.h"
 
-struct MainCharacterStats mainChar;
-
 /*
 This starts a new game (TBD)
 */
@@ -16,6 +14,6 @@ This loads the save game data from text/savefile.json (TBD)
 and starts the game with it
 */
 
-int loadPreviousGame(struct MainCharacterStats *mainChar);
+int loadPreviousGame(CharacterStats *mainChar);
 
 #endif

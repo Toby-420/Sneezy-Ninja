@@ -22,7 +22,7 @@ extern int musicVol;
 
 int startGame(void) { return 0; }
 
-int loadPreviousGame(struct MainCharacterStats *mainChar) {
+int loadPreviousGame(CharacterStats *mainChar) {
 	loadGame(mainChar);
 	return 0;
 }

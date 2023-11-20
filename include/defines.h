@@ -8,6 +8,7 @@
 #define FRAME_DELAY 15
 #define MAIN_CHAR_MAX_HEALTH 100
 #define MAIN_CHAR_MAX_SPEED 10
+#define MAX_ITEMS 128
 
 /*
 Some enums of function error return codes
@@ -16,24 +17,18 @@ Some enums of function error return codes
 typedef enum { SUCCESS, VIDEO_INIT_FAIL, TTF_INIT_FAIL, IMG_INIT_FAIL, MIXER_INIT_FAIL, WINDOW_CREATE_FAIL, RENDERER_FAIL, FONT_LOAD_FAIL, IMAGE_FAIL, AUDIO_LOAD_FAIL} ERROR_RETURN_CODES;
 
 /*
-Where the user came from when opening the settings menu
+What the screen is displaying
 */
 
-typedef enum { MAIN_MENU, GAME_PAUSE_MENU } SETTINGS_MENU_OPEN_ORIGINS;
-
-/*
-What part of the mene the main menu screen is in
-*/
-
-typedef enum { MAIN, SETTINGS_MENU, START_SCREEN } MenuState;
+typedef enum { MAIN_MENU, SETTINGS_MENU, START_SCREEN, GAME_SCREEN, INVENTORY } MenuState;
 
 /*
 Different assets loaded in from files go in these
 */
 
 typedef struct {
-	const char imageDefinitions[1][50];
-	const char audioDefinitions[6][35];
+	const char imageDefinitions[2][50];
+	const char audioDefinitions[8][45];
 } AssetDefinitions;
 
 /*
@@ -60,14 +55,27 @@ typedef struct {
 /*
 Variables for the main character
 Expect these to grow in number
-
-This type of struct definition is used over the other type as I got lots of errors
-with the other type only for this struct
 */
 
-struct MainCharacterStats {
+typedef struct {
 	unsigned int health;
 	uint8_t speed;
-};
+} CharacterStats;
+
+/*
+Structs for the inventory system
+*/
+
+typedef struct {
+	int itemID;
+	char name[64];
+	int quantity;
+	int price;
+} Item;
+
+typedef struct {
+	Item items[MAX_ITEMS];
+	int numItems;
+} Inventory;
 
 #endif
